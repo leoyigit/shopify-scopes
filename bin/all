@@ -49,14 +49,7 @@ EOF
 }
 
 # ── updates: a quiet check at most once a day, and a reminder when a new version is out ──
-git_gh() {  # git with the GitHub CLI as credential helper, so the private repo works without a password prompt
-  if command -v gh >/dev/null 2>&1; then
-    git -c credential.helper= -c 'credential.helper=!gh auth git-credential' "$@"
-  else
-    git "$@"
-  fi
-}
-fetch_now() { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes" git_gh -C "$ROOT" fetch --quiet origin >/dev/null 2>&1; }
+fetch_now() { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes" git -C "$ROOT" fetch --quiet origin >/dev/null 2>&1; }
 older_than_a_day() { [ ! -f "$1" ] || [ -n "$(find "$1" -mmin +1440 2>/dev/null)" ]; }
 update_check_in_background() {
   [ -d "$ROOT/.git" ] && [ -z "${SHOPIFY_SCOPES_NO_UPDATE_CHECK:-}" ] || return 0

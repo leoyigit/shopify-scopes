@@ -60,14 +60,6 @@ banner() {
     "  ${B}└──────────────────────────────────────────────┘${X}"
 }
 
-git_gh() {  # git with the GitHub CLI as credential helper, so the private repo needs no password prompt
-  if command -v gh >/dev/null 2>&1; then
-    git -c credential.helper= -c 'credential.helper=!gh auth git-credential' "$@"
-  else
-    git "$@"
-  fi
-}
-
 # ── where am I running from? ──────────────────────────────────────────────────
 SELF="${BASH_SOURCE[0]:-}"
 ROOT=""
@@ -101,7 +93,7 @@ if [ "$ACTION" = "update" ]; then
   target="${ROOT:-$INSTALL_DIR}"
   [ -d "$target/.git" ] || { bad "No downloaded copy at $target. Run the install line from the README."; exit 1; }
   before="$(git -C "$target" rev-parse --short HEAD)" v_before="$(cat "$target/VERSION" 2>/dev/null || echo "?")"
-  if ! GIT_TERMINAL_PROMPT=0 git_gh -C "$target" pull --ff-only --quiet; then
+  if ! GIT_TERMINAL_PROMPT=0 git -C "$target" pull --ff-only --quiet; then
     bad "Couldn't download the update."
     info "Check you're online, then run it again."
     exit 1
@@ -131,10 +123,10 @@ command -v git >/dev/null 2>&1 || { echo "git is missing. Run: xcode-select --in
 if [ -z "$ROOT" ]; then  # started from the one-line install: download, then run the downloaded copy
   printf '\n%s\n' "${B}Downloading shopify-scopes…${X}"
   if [ -d "$INSTALL_DIR/.git" ]; then
-    GIT_TERMINAL_PROMPT=0 git_gh -C "$INSTALL_DIR" pull --ff-only --quiet && ok "Updated the existing copy."
+    GIT_TERMINAL_PROMPT=0 git -C "$INSTALL_DIR" pull --ff-only --quiet && ok "Updated the existing copy."
   else
     mkdir -p "$(dirname "$INSTALL_DIR")"
-    git_gh clone --quiet "https://github.com/$REPO.git" "$INSTALL_DIR" && ok "Downloaded."
+    git clone --quiet "https://github.com/$REPO.git" "$INSTALL_DIR" && ok "Downloaded."
   fi
   args=()
   [ "$YES" = true ] && args+=(--yes)
