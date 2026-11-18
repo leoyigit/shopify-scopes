@@ -1,0 +1,171 @@
+#!/bin/bash
+# all: tick every scope in Shopify's "Select scopes" popup, then press Done.
+# Part of https://github.com/leoyigit/shopify-scopes (run `all --help`).
+set -euo pipefail
+
+NAME="$(basename "$0")"
+# Keyboard shortcuts run with a minimal PATH; add the usual places for git and gh.
+PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+
+# Find the repo folder, following the symlink in ~/.local/bin (works on any macOS version).
+src="$0"
+while [ -L "$src" ]; do
+  t="$(readlink "$src")"
+  case "$t" in /*) src="$t" ;; *) src="$(dirname "$src")/$t" ;; esac
+done
+ROOT="$(cd "$(dirname "$src")/.." && pwd)"
+VERSION="$(cat "$ROOT/VERSION" 2>/dev/null || echo "?")"
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  B=$'\e[1m' D=$'\e[2m' G=$'\e[32m' R=$'\e[31m' Y=$'\e[33m' C=$'\e[36m' X=$'\e[0m'
+else
+  B="" D="" G="" R="" Y="" C="" X=""
+fi
+
+usage() {
+  cat <<EOF
+
+  ${B}$NAME${X}  ${D}v$VERSION${X}
+  Ticks every scope in Shopify's ${B}Select scopes${X} popup and presses ${B}Done${X}.
+  If the popup is closed, it opens it first with ${B}Select from list${X}.
+
+  ${B}How to use${X}
+    1. Open your app's page in the browser (the one with the ${B}Scopes${X} section).
+    2. Run ${C}$NAME${X} in a terminal, or press your keyboard shortcut.
+
+  ${B}Commands${X}
+    ${C}$NAME${X}                    select every scope and press Done
+    ${C}$NAME --check${X}            look for the popup and report, change nothing
+    ${C}$NAME --browser safari${X}   use only this browser (any part of its name)
+    ${C}$NAME --bookmarklet${X}      copy a bookmark version to the clipboard (any browser, no setup)
+    ${C}$NAME --setup${X}            run the guided setup again (checks, keyboard shortcut)
+    ${C}$NAME --update${X}           install the latest version
+    ${C}$NAME --version${X}          show the version and check for updates
+    ${C}$NAME --uninstall${X}        remove it from this Mac
+
+  ${D}Browsers: Chrome, Safari, Brave, Edge, Arc, Vivaldi, Chromium. Others (Firefox): use --bookmarklet.${X}
+
+EOF
+}
+
+# ── updates: a quiet check at most once a day, and a reminder when a new version is out ──
+git_gh() {  # git with the GitHub CLI as credential helper, so the private repo works without a password prompt
+  if command -v gh >/dev/null 2>&1; then
+    git -c credential.helper= -c 'credential.helper=!gh auth git-credential' "$@"
+  else
+    git "$@"
+  fi
+}
+fetch_now() { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes" git_gh -C "$ROOT" fetch --quiet origin >/dev/null 2>&1; }
+older_than_a_day() { [ ! -f "$1" ] || [ -n "$(find "$1" -mmin +1440 2>/dev/null)" ]; }
+update_check_in_background() {
+  [ -d "$ROOT/.git" ] && [ -z "${SHOPIFY_SCOPES_NO_UPDATE_CHECK:-}" ] || return 0
+  older_than_a_day "$ROOT/.git/shopify-scopes-checked" || return 0
+  touch "$ROOT/.git/shopify-scopes-checked"
+  (fetch_now &) 2>/dev/null
+}
+new_version() {  # prints the newer version if the last check found one (no network)
+  [ -d "$ROOT/.git" ] || return 1
+  local behind
+  behind="$(git -C "$ROOT" rev-list --count 'HEAD..@{u}' 2>/dev/null || echo 0)"
+  [ "${behind:-0}" -gt 0 ] || return 1
+  git -C "$ROOT" show '@{u}:VERSION' 2>/dev/null || echo "newer"
+}
+update_notice() {
+  local v
+  v="$(new_version)" || return 0
+  if [ -t 1 ] || [ -t 2 ]; then
+    printf '\n%s\n' "  ${Y}↑${X} ${B}Update available${X}: v$VERSION → v$v. Run ${C}$NAME --update${X}" >&2
+  elif older_than_a_day "$ROOT/.git/shopify-scopes-notified"; then  # keyboard shortcut: a notification, once a day
+    touch "$ROOT/.git/shopify-scopes-notified"
+    osascript -e "display notification \"Run $NAME --update in a terminal.\" with title \"Select all scopes v$v is available\"" >/dev/null 2>&1 || true
+  fi
+}
+
+die() {
+  printf '%s\n' "${R}✗${X} $1" >&2
+  shift
+  for l in "$@"; do printf '%s\n' "  $l" >&2; done
+  update_notice
+  exit 1
+}
+js_off_help() {  # how to switch on the one browser setting, per browser
+  case "$1" in
+    *Safari*) echo "Turn it on once: ${B}Safari → Settings → Advanced${X} → tick ${B}Show features for web developers${X}," \
+                   "then in the menu bar ${B}Develop → Allow JavaScript from Apple Events${X}." ;;
+    *) echo "Turn it on once: in $1's menu bar, ${B}View → Developer → Allow JavaScript from Apple Events${X}." ;;
+  esac
+}
+
+# ── options ──
+MODE="run" ONLY=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --check) MODE="check" ;;
+    --browser) ONLY="${2:?--browser needs a name, e.g. --browser safari}"; shift ;;
+    --bookmarklet) MODE="bookmarklet" ;;
+    --setup) exec bash "$ROOT/install.sh" ;;
+    --update) exec bash "$ROOT/install.sh" --update ;;
+    --uninstall) exec bash "$ROOT/install.sh" --uninstall ;;
+    --version|-v) MODE="version" ;;
+    -h|--help|help) usage; exit 0 ;;
+    *) usage >&2; die "Unknown option: $1" ;;
+  esac
+  shift
+done
+
+if [ "$MODE" = "version" ]; then
+  echo "$NAME $VERSION"
+  if [ -d "$ROOT/.git" ] && fetch_now; then
+    touch "$ROOT/.git/shopify-scopes-checked"
+    if v="$(new_version)"; then echo "${Y}↑${X} v$v is available. Run ${C}$NAME --update${X}"; else echo "${G}✓${X} Up to date."; fi
+  else
+    echo "${D}(couldn't check for updates right now)${X}"
+  fi
+  exit 0
+fi
+
+CODE="$(cat "$ROOT/src/select-all-scopes.js")" || die "Can't read $ROOT/src/select-all-scopes.js. Reinstall it."
+
+if [ "$MODE" = "bookmarklet" ]; then
+  url="$(osascript -l JavaScript -e 'function run(a){return "javascript:"+encodeURIComponent(a[0])}' \
+    "$(printf '(()=>{%s\n})();' "$CODE")")"
+  printf '%s' "$url" | pbcopy
+  printf '%s\n' "${G}✓${X} Bookmarklet copied to the clipboard. It works in any browser, with no setup." \
+    "  Add a bookmark: right-click the bookmarks bar → ${B}Add page…${X} (Chrome) or ${B}Add Bookmark${X}," \
+    "  name it ${B}Select all scopes${X} and paste (⌘V) as its address. Click it on your app's page."
+  exit 0
+fi
+
+update_check_in_background
+[ "$MODE" = "check" ] && CODE="window.__selectAllScopesDryRun = true; $CODE"
+out="$(osascript -l JavaScript "$ROOT/src/browser.js" run "$CODE" "$ONLY" 2>&1)" || true
+
+case "$out" in
+  OK\ *)
+    body="${out#OK }"
+    case "$body" in Error:*) die "${body%%$'\n'*}" "${D}in: ${body#*$'\n'}${X}" ;; esac
+    printf '%s\n' "${G}✓${X} ${body%%$'\n'*}" "  ${D}in: ${body#*$'\n'}${X}" ;;
+  ERR_NO_POPUP*)
+    die "Found ${out#ERR_NO_POPUP } Shopify tab(s), but no ${B}Select scopes${X} popup or ${B}Select from list${X} button." \
+      "Open your app's page with the ${B}Scopes${X} section (e.g. Dev Dashboard → Create an app), then run ${C}$NAME${X} again." ;;
+  ERR_NO_TAB*)
+    die "No Shopify tab is open in ${out#ERR_NO_TAB }." "Open your app's page, then run ${C}$NAME${X} again." ;;
+  ERR_NO_BROWSER*)
+    if [ -n "$ONLY" ]; then die "No running browser matches \"$ONLY\"."; fi
+    die "No supported browser is running." "Supported: Chrome, Safari, Brave, Edge, Arc, Vivaldi, Chromium. Others: ${C}$NAME --bookmarklet${X}." ;;
+  ERR_UNSUPPORTED*)
+    die "${out#ERR_UNSUPPORTED } can't be controlled from the terminal." "Use the bookmark instead: ${C}$NAME --bookmarklet${X} (works in any browser)." ;;
+  ERR_APPLE_EVENTS*)
+    br="${out#ERR_APPLE_EVENTS }"
+    die "$br is blocking scripts from outside." "$(js_off_help "$br")" "Or run ${C}$NAME --setup${X} for a guided check." ;;
+  ERR_DENIED*)
+    br="${out#ERR_DENIED }"
+    die "macOS hasn't allowed this app to control $br." \
+      "System Settings → ${B}Privacy & Security → Automation${X} → your terminal (or Shortcuts) → turn on ${B}$br${X}." ;;
+  ERR_TIMEOUT*)
+    die "Started in \"${out#ERR_TIMEOUT }\" but got no answer after 15 s. Look at the tab." ;;
+  ERR_OTHER*) die "Something went wrong:" "${out#ERR_OTHER }" ;;
+  *) die "Something went wrong:" "$out" ;;
+esac
+update_notice
