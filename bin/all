@@ -75,7 +75,11 @@ update_notice() {
   local v
   v="$(new_version)" || return 0
   if [ -t 1 ] || [ -t 2 ]; then
-    printf '\n%s\n' "  ${Y}↑${X} ${B}Update available${X}: v$VERSION → v$v. Run ${C}$NAME --update${X}" >&2
+    local what="v$VERSION → v$v"
+    if [ "$v" = "$VERSION" ] || [ "$v" = "newer" ]; then
+      what="$(git -C "$ROOT" rev-list --count 'HEAD..@{u}' 2>/dev/null) new change(s)"
+    fi
+    printf '\n%s\n' "  ${Y}↑${X} ${B}Update available${X}: $what. Run ${C}$NAME --update${X}" >&2
   elif older_than_a_day "$ROOT/.git/shopify-scopes-notified"; then  # keyboard shortcut: a notification, once a day
     touch "$ROOT/.git/shopify-scopes-notified"
     osascript -e "display notification \"Run $NAME --update in a terminal.\" with title \"Select all scopes v$v is available\"" >/dev/null 2>&1 || true
@@ -118,7 +122,7 @@ if [ "$MODE" = "version" ]; then
   echo "$NAME $VERSION"
   if [ -d "$ROOT/.git" ] && fetch_now; then
     touch "$ROOT/.git/shopify-scopes-checked"
-    if v="$(new_version)"; then echo "${Y}↑${X} v$v is available. Run ${C}$NAME --update${X}"; else echo "${G}✓${X} Up to date."; fi
+    if v="$(new_version)"; then echo "${Y}↑${X} An update is available (v$v). Run ${C}$NAME --update${X}"; else echo "${G}✓${X} Up to date."; fi
   else
     echo "${D}(couldn't check for updates right now)${X}"
   fi

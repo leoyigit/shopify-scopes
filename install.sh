@@ -111,7 +111,7 @@ if [ "$ACTION" = "update" ]; then
   if [ "$before" = "$after" ]; then
     ok "Already up to date (v$v_after)."
   else
-    ok "Updated v$v_before → ${B}v$v_after${X}. What's new:"
+    if [ "$v_before" = "$v_after" ]; then ok "Updated to the latest v$v_after. What's new:"; else ok "Updated v$v_before → ${B}v$v_after${X}. What's new:"; fi
     git -C "$target" log --no-merges --format='    • %s' "$before..$after"
   fi
   exit 0
