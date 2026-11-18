@@ -7,6 +7,9 @@
 #   options: --yes (no questions, use defaults)  --name <command>  --help
 set -euo pipefail
 
+# Everything runs inside main(), called on the last line: a download cut off half-way runs nothing.
+main() {
+
 REPO="leoyigit/shopify-scopes"
 INSTALL_DIR="$HOME/.local/share/shopify-scopes"
 BIN_DIR="$HOME/.local/bin"
@@ -100,7 +103,7 @@ if [ "$ACTION" = "update" ]; then
   before="$(git -C "$target" rev-parse --short HEAD)" v_before="$(cat "$target/VERSION" 2>/dev/null || echo "?")"
   if ! GIT_TERMINAL_PROMPT=0 git_gh -C "$target" pull --ff-only --quiet; then
     bad "Couldn't download the update."
-    info "Check you're online and signed in to GitHub (${C}gh auth status${X}), then run it again."
+    info "Check you're online, then run it again."
     exit 1
   fi
   after="$(git -C "$target" rev-parse --short HEAD)" v_after="$(cat "$target/VERSION" 2>/dev/null || echo "?")"
@@ -115,7 +118,14 @@ if [ "$ACTION" = "update" ]; then
 fi
 
 # ── install / guided setup ────────────────────────────────────────────────────
-[ "$(uname)" = "Darwin" ] || { echo "This only works on a Mac." >&2; exit 1; }
+if [ "$(uname)" != "Darwin" ]; then
+  printf '%s\n' "" "  ${B}This computer isn't a Mac${X}, so the ${C}all${X} command can't run here: it drives the browser" \
+    "  through a macOS feature. The bookmark version works on any computer and in any browser:" "" \
+    "    ${B}1.${X} Open ${C}https://leoyigit.github.io/shopify-scopes/${X}" \
+    "    ${B}2.${X} Drag the ${B}Select all scopes${X} button to your bookmarks bar." \
+    "    ${B}3.${X} On your app's page, click that bookmark." ""
+  exit 0
+fi
 command -v git >/dev/null 2>&1 || { echo "git is missing. Run: xcode-select --install, then this again." >&2; exit 1; }
 
 if [ -z "$ROOT" ]; then  # started from the one-line install: download, then run the downloaded copy
@@ -259,3 +269,6 @@ printf '%s\n' "" \
   "    ${C}$NAME --bookmarklet${X}   ${D}a bookmark button instead (any browser, no setup)${X}" \
   "    ${C}$NAME --help${X}          ${D}all commands · ${C}$NAME --setup${X}${D} re-runs this guide${X}" \
   "  ${D}When a new version is out, ${C}$NAME${X}${D} tells you; ${C}$NAME --update${X}${D} installs it.${X}" ""
+}
+
+main "$@"

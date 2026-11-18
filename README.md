@@ -10,34 +10,30 @@ $ all
   in: Create an app · Dev Dashboard · Google Chrome
 ```
 
-- **Mac only.** Works in Chrome, Safari, Brave, Edge, Arc, Vivaldi and Chromium. In any other browser (Firefox,
-  Opera…), use the [bookmark](#bookmark-instead-any-browser-no-setup).
+- **On a Mac:** the `all` command and keyboard shortcut, in Chrome, Safari, Brave, Edge, Arc, Vivaldi and Chromium.
+- **On any computer, in any browser** (Windows, Linux, Firefox…): the bookmark button from
+  **[leoyigit.github.io/shopify-scopes](https://leoyigit.github.io/shopify-scopes/)**. Drag it to your bookmarks bar
+  and click it on your app's page.
 - **Tested** on the Shopify Dev Dashboard, **Create an app** page, in Google Chrome.
 - **Updates itself on request.** When a new version is out, `all` tells you, and `all --update` installs it.
 
 ---
 
-## Install (about 2 minutes)
+## Install on a Mac (about 2 minutes)
 
-You need access to this private repo (ask the repo owner) and the GitHub CLI, signed in:
-
-```bash
-brew install gh     # skip if you already have it
-gh auth login       # skip if you're already signed in
-```
-
-Then paste this into Terminal:
+Paste this into Terminal. No GitHub account needed:
 
 ```bash
-gh api repos/leoyigit/shopify-scopes/contents/install.sh -H "Accept: application/vnd.github.raw" | bash
+curl -fsSL https://raw.githubusercontent.com/leoyigit/shopify-scopes/main/install.sh | bash
 ```
 
 <details>
-<summary>No GitHub CLI? Use git instead</summary>
+<summary>Prefer to look before you run it?</summary>
 
 ```bash
 git clone https://github.com/leoyigit/shopify-scopes.git ~/.local/share/shopify-scopes
-bash ~/.local/share/shopify-scopes/install.sh
+less ~/.local/share/shopify-scopes/install.sh      # read it
+bash ~/.local/share/shopify-scopes/install.sh      # then run it
 ```
 </details>
 
@@ -114,9 +110,11 @@ To check the shortcut is available, look for **Select all scopes** in your brows
 
 ## Bookmark instead (any browser, no setup)
 
-`all --bookmarklet` copies a bookmark version to your clipboard. Add a bookmark to your bookmarks bar, name it
-**Select all scopes** and paste as its address. Click it on your app's page. It works in every browser, Firefox
-included, and needs neither the browser setting nor the terminal, but it can't have a keyboard shortcut.
+Open **[leoyigit.github.io/shopify-scopes](https://leoyigit.github.io/shopify-scopes/)** and drag the button to your
+bookmarks bar. Then click that bookmark on your app's page. It works on any computer and in every browser, Firefox
+included, and needs no install, no browser setting and no terminal. It can't have a keyboard shortcut.
+
+On a Mac with `all` installed, `all --bookmarklet` copies the same bookmark to your clipboard instead.
 
 ---
 
@@ -132,7 +130,7 @@ included, and needs neither the browser setting nor the terminal, but it can't h
 | `Firefox can't be controlled from the terminal.` | Use the bookmark: `all --bookmarklet`. |
 | `command not found: all` | Open a new terminal tab (the PATH change applies to new tabs), or run `~/.local/bin/all`. |
 | The keyboard shortcut does nothing | Check steps 3, 4 and 6 above: **receive no input**, **Services Menu** ticked, **Allow Running Scripts** on. |
-| `Couldn't download the update.` | Check you're online and signed in: `gh auth status`. |
+| `Couldn't download the update.` | Check you're online, then run `all --update` again. |
 
 Still stuck? Run `all --setup`: it re-checks everything and tells you what's missing.
 
@@ -148,8 +146,8 @@ Still stuck? Run `all --setup`: it re-checks everything and tells you what's mis
   does the same search without clicking anything.
 - The browser setting **Allow JavaScript from Apple Events** lets apps you've allowed to control the browser run
   scripts in its tabs. Turn it off whenever you like; only the terminal and keyboard routes need it.
-- The update check runs `git fetch` on its own folder once a day, through your GitHub sign-in; it never changes your
-  files until you run `all --update`.
+- The update check runs `git fetch` on its own folder once a day; it never changes your files until you run
+  `all --update`.
 - Installed files: the code in `~/.local/share/shopify-scopes`, a link at `~/.local/bin/all`, and one PATH line in
   `~/.zshrc` if your PATH didn't include `~/.local/bin`. `all --uninstall` removes the first two.
 - If Shopify changes the page, the script may need an update: `all --update`.
@@ -161,7 +159,8 @@ Still stuck? Run `all --setup`: it re-checks everything and tells you what's mis
 - **Release a new version:** change the code, raise the number in `VERSION` (e.g. `1.0.0` → `1.1.0`), commit with a
   clear message, and push to `main`. Everyone sees the update reminder within a day, and `all --update` lists the
   commit messages as "what's new".
-- **Give a colleague access:** repo **Settings → Collaborators → Add people** (read access is enough).
+- **The bookmark page** (`docs/index.html`, served by GitHub Pages) builds its button from `src/select-all-scopes.js`
+  on `main` each time it loads, so it is always the current version.
 - **Test without touching your own setup:** `HOME=$(mktemp -d) bash install.sh --yes` installs into a throwaway folder.
 
 ```text
@@ -169,5 +168,6 @@ bin/all                    the command
 src/select-all-scopes.js   the script that runs in the Shopify tab (also works pasted into the DevTools console)
 src/browser.js             finds the Shopify tab in each supported browser and runs the script there
 install.sh                 guided installer: install, --update, --uninstall, --yes, --name <command>
+docs/index.html            the bookmark page for any computer (GitHub Pages)
 VERSION                    the current version; raise it to trigger update reminders
 ```
